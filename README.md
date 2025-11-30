@@ -8,5 +8,7 @@ To run backend:
 
 4. run python3 app.py
 
-5. go to localhost:5000/covid_starost to get data for last 7 days (to be changed)
-6. go to localhost:5000/covid_regije to get data for last 7 days (to be changed)
+5. go to localhost:5000/covid_starost to get data for last 7 days
+6. go to localhost:5000/covid_regije to get data for last 7 days 
+
+To display for eg. last 30 days, got to localhost:5000/covid_regije?days=30
