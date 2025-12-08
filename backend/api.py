@@ -1,8 +1,10 @@
 from flask import Flask, request, render_template, jsonify
 import elasticsearch
 import datetime
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
 es = elasticsearch.Elasticsearch(hosts=["http://localhost:9200"])
 
 @app.route('/covid_regije')
