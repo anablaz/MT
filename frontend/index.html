@@ -2,18 +2,116 @@
 <html lang="sl">
 <head>
     <meta charset="UTF-8">
-    <title>Covid graf</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Covid Vizualizacija | MT 2025/26</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <h1 class="logo">
+                <span class="logo-accent">Covid</span> Vizualizacija
+            </h1>
+            <p class="subtitle">Analiza cepljenj v Sloveniji</p>
+        </div>
+    </header>
 
-<h1>Covid cepljenja po regijah</h1>
+    <!-- Navigation Tabs -->
+    <nav class="tabs">
+        <button class="tab active" data-tab="regije">
+            <span class="tab-icon">◈</span>
+            Po regijah
+        </button>
+        <button class="tab" data-tab="starost">
+            <span class="tab-icon">◇</span>
+            Po starosti
+        </button>
+        <button class="tab" data-tab="kombinirano">
+            <span class="tab-icon">◆</span>
+            Kombinirano
+        </button>
+        <button class="tab" data-tab="timeline">
+            <span class="tab-icon">◷</span>
+            Skozi čas
+        </button>
+    </nav>
 
-<!-- SVG ZA GRAF -->
-<svg id="graf" width="800" height="400"></svg>
+    <!-- Main Content -->
+    <main class="main">
+        <!-- Regije Tab -->
+        <section id="regije" class="tab-content active">
+            <div class="card">
+                <div class="card-header">
+                    <h2>Cepljenja po regijah</h2>
+                    <p class="card-description">Število cepljenj proti gripi in COVID-19 po statističnih regijah Slovenije (zadnjih 365 dni)</p>
+                </div>
+                <div class="chart-container">
+                    <svg id="graf-regije"></svg>
+                </div>
+            </div>
+        </section>
 
-<!-- D3 -->
-<script src="https://d3js.org/d3.v7.min.js"></script>
-<script src="app.js"></script>
+        <!-- Starost Tab -->
+        <section id="starost" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h2>Cepljenja po starosti</h2>
+                    <p class="card-description">Število cepljenj proti gripi in COVID-19 po starostnih skupinah (zadnjih 365 dni)</p>
+                </div>
+                <div class="chart-container">
+                    <svg id="graf-starost"></svg>
+                </div>
+            </div>
+        </section>
 
+        <!-- Kombinirano Tab -->
+        <section id="kombinirano" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h2>Primerjava cepljenj: Gripa vs COVID-19</h2>
+                    <p class="card-description">Število cepljenj po starostnih skupinah in bolezni (zadnjih 365 dni)</p>
+                </div>
+                <div class="chart-container">
+                    <svg id="graf-kombinirano"></svg>
+                </div>
+                <div class="legend" id="legend-kombinirano"></div>
+            </div>
+        </section>
+
+        <!-- Timeline Tab -->
+        <section id="timeline" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h2>Cepljenja skozi čas</h2>
+                    <p class="card-description">Mesečni trend cepljenj proti gripi in COVID-19 (zadnjih 365 dni)</p>
+                </div>
+                <div class="chart-container">
+                    <svg id="graf-timeline"></svg>
+                </div>
+                <div class="legend" id="legend-timeline"></div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <span class="footer-brand">MT 2025/26</span>
+            <span class="footer-divider">·</span>
+            <span class="footer-text">Maja Rovtar in Ana Blaž</span>
+        </div>
+    </footer>
+
+    <!-- D3 -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>
