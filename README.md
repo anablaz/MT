@@ -6,7 +6,7 @@ To run backend:
 
 ![alt text](image.png)
 
-4. run python3 app.py
+4. run python3 api.py
 
 5. go to localhost:5000/covid_starost to get data for last 7 days
 6. go to localhost:5000/covid_regije to get data for last 7 days 
