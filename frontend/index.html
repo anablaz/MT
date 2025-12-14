@@ -5,16 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Covid Vizualizacija | MT 2025/26</title>
     
-    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
     
-    <!-- Styles -->
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- Header -->
     <header class="header">
         <div class="header-content">
             <h1 class="logo">
@@ -24,7 +21,27 @@
         </div>
     </header>
 
-    <!-- Navigation Tabs -->
+    <div class="filters">
+        <div class="filter-group">
+            <label class="filter-label">Obdobje</label>
+            <select id="filter-obdobje" class="filter-select">
+                <option value="all">Vse</option>
+                <option value="2023">2023</option>
+                <option value="2024">2024</option>
+                <option value="2025">2025</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label class="filter-label">Prikaz po</label>
+            <select id="filter-granulacija" class="filter-select">
+                <option value="month">Mesecih</option>
+                <option value="year">Letih</option>
+                <option value="day">Dnevih</option>
+            </select>
+        </div>
+        <button id="filter-apply" class="filter-button">Uporabi</button>
+    </div>
+
     <nav class="tabs">
         <button class="tab active" data-tab="regije">
             <span class="tab-icon">◈</span>
@@ -42,16 +59,18 @@
             <span class="tab-icon">◷</span>
             Skozi čas
         </button>
+        <button class="tab" data-tab="korelacija">
+            <span class="tab-icon">◉</span>
+            Korelacija
+        </button>
     </nav>
 
-    <!-- Main Content -->
     <main class="main">
-        <!-- Regije Tab -->
         <section id="regije" class="tab-content active">
             <div class="card">
                 <div class="card-header">
                     <h2>Cepljenja po regijah</h2>
-                    <p class="card-description">Število cepljenj proti gripi in COVID-19 po statističnih regijah Slovenije (zadnjih 365 dni)</p>
+                    <p class="card-description">Število cepljenj proti gripi in COVID-19 po statističnih regijah Slovenije</p>
                 </div>
                 <div class="chart-container">
                     <svg id="graf-regije"></svg>
@@ -59,12 +78,11 @@
             </div>
         </section>
 
-        <!-- Starost Tab -->
         <section id="starost" class="tab-content">
             <div class="card">
                 <div class="card-header">
                     <h2>Cepljenja po starosti</h2>
-                    <p class="card-description">Število cepljenj proti gripi in COVID-19 po starostnih skupinah (zadnjih 365 dni)</p>
+                    <p class="card-description">Število cepljenj proti gripi in COVID-19 po starostnih skupinah</p>
                 </div>
                 <div class="chart-container">
                     <svg id="graf-starost"></svg>
@@ -72,12 +90,11 @@
             </div>
         </section>
 
-        <!-- Kombinirano Tab -->
         <section id="kombinirano" class="tab-content">
             <div class="card">
                 <div class="card-header">
                     <h2>Primerjava cepljenj: Gripa vs COVID-19</h2>
-                    <p class="card-description">Število cepljenj po starostnih skupinah in bolezni (zadnjih 365 dni)</p>
+                    <p class="card-description">Število cepljenj po starostnih skupinah in bolezni</p>
                 </div>
                 <div class="chart-container">
                     <svg id="graf-kombinirano"></svg>
@@ -86,12 +103,11 @@
             </div>
         </section>
 
-        <!-- Timeline Tab -->
         <section id="timeline" class="tab-content">
             <div class="card">
                 <div class="card-header">
                     <h2>Cepljenja skozi čas</h2>
-                    <p class="card-description">Mesečni trend cepljenj proti gripi in COVID-19 (zadnjih 365 dni)</p>
+                    <p class="card-description">Trend cepljenj proti gripi in COVID-19</p>
                 </div>
                 <div class="chart-container">
                     <svg id="graf-timeline"></svg>
@@ -99,9 +115,21 @@
                 <div class="legend" id="legend-timeline"></div>
             </div>
         </section>
+
+        <section id="korelacija" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h2>COVID-19: Splošna populacija vs Zdravstvo</h2>
+                    <p class="card-description">Primerjava tedenskih potrjenih primerov in okužb v zdravstvenih ustanovah (2020-2023)</p>
+                </div>
+                <div class="chart-container">
+                    <svg id="graf-korelacija"></svg>
+                </div>
+                <div class="legend" id="legend-korelacija"></div>
+            </div>
+        </section>
     </main>
 
-    <!-- Footer -->
     <footer class="footer">
         <div class="footer-content">
             <span class="footer-brand">MT 2025/26</span>
@@ -110,7 +138,6 @@
         </div>
     </footer>
 
-    <!-- D3 -->
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <script src="app.js"></script>
 </body>

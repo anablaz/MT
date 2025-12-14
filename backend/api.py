@@ -10,7 +10,33 @@ es = elasticsearch.Elasticsearch(hosts=["http://localhost:9200"])
 
 SERVER = "https://api.sledilnik.org/api"
 
+@app.route('/covid_regije')
+def covid_regije():
+    try:
+        resp = es.search(
+            index="covid_regije",
+            size=10000,
+            query={"match_all": {}}
+        )
+        
+        hits = resp.get('hits', {}).get('hits', [])
+        data = [hit['_source'] for hit in hits]
+        total = resp['hits']['total']['value'] if isinstance(resp['hits']['total'], dict) else resp['hits']['total']
+        
+        return jsonify({
+            "status": "success",
+            "total": total,
+            "data": data
+        })
+        
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e),
+            "data": []
+        }), 500
 
+"""
 @app.route('/covid_regije')
 def covid_regije():
 
@@ -64,8 +90,33 @@ def covid_regije():
             "message": str(e),
             "data": []
         }), 500
-    
-
+"""
+@app.route('/covid_starost')
+def covid_starost():
+    try:
+        resp = es.search(
+            index="covid_starost",
+            size=10000,
+            query={"match_all": {}}
+        )
+        
+        hits = resp.get('hits', {}).get('hits', [])
+        data = [hit['_source'] for hit in hits]
+        total = resp['hits']['total']['value'] if isinstance(resp['hits']['total'], dict) else resp['hits']['total']
+        
+        return jsonify({
+            "status": "success",
+            "total": total,
+            "data": data
+        })
+        
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e),
+            "data": []
+        }), 500
+"""
 @app.route('/covid_starost')
 def covid_starost():
 
@@ -119,6 +170,7 @@ def covid_starost():
             "message": str(e),
             "data": []
         }), 500
+"""
 
 
 @app.route('/daily_deaths')
