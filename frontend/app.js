@@ -60,15 +60,21 @@ function getDateKey(datum, granulacija) {
     }
 }
 
-function getWeekFromDate(dateStr) {
-    const date = new Date(dateStr);
-    const startOfYear = new Date(date.getFullYear(), 0, 1);
-    const days = Math.floor((date - startOfYear) / (24 * 60 * 60 * 1000));
-    const week = Math.ceil((days + startOfYear.getDay() + 1) / 7);
-    return `${date.getFullYear()}-${week.toString().padStart(2, '0')}`;
-}
-
 document.addEventListener('DOMContentLoaded', () => {
+    const landing = document.getElementById('landing');
+    const startBtn = document.getElementById('start-exploring');
+    const mainHeader = document.getElementById('main-header');
+    const filtersSection = document.getElementById('filters-section');
+    const tabsSection = document.getElementById('tabs-section');
+    const mainContent = document.getElementById('main-content');
+    
+    if (startBtn) {
+        startBtn.addEventListener('click', () => {
+            landing.classList.add('hidden');
+            mainHeader.scrollIntoView({ behavior: 'smooth' });
+        });
+    }
+
     const tabs = document.querySelectorAll('.tab');
     const tabContents = document.querySelectorAll('.tab-content');
 
@@ -115,6 +121,7 @@ function loadAllData() {
         .then(raw => {
             rawDataRegije = raw.data || [];
             console.log('Loaded regije data:', rawDataRegije.length, 'records');
+            updateLandingStats();
         })
         .catch(err => console.error('Error loading regije:', err));
 
@@ -131,18 +138,34 @@ function loadAllData() {
         .then(raw => {
             rawDataStatsWeekly = raw.data || [];
             console.log('Loaded stats weekly:', rawDataStatsWeekly.length, 'records');
+            updateLandingStats();
         })
         .catch(err => console.error('Error loading stats weekly:', err));
 
     setTimeout(renderAllCharts, 500);
 }
 
+function updateLandingStats() {
+    const statOkuzbe = document.getElementById('stat-okuzbe');
+    const statCepljenja = document.getElementById('stat-cepljenja');
+    
+    if (rawDataStatsWeekly.length > 0 && statOkuzbe) {
+        const totalOkuzbe = rawDataStatsWeekly.reduce((sum, d) => sum + (d.confirmed || 0), 0);
+        statOkuzbe.textContent = totalOkuzbe.toLocaleString('sl-SI');
+    }
+    
+    if (rawDataRegije.length > 0 && statCepljenja) {
+        const totalCepljenja = rawDataRegije.reduce((sum, d) => sum + (d.St_cepljenj || 0), 0);
+        statCepljenja.textContent = totalCepljenja.toLocaleString('sl-SI');
+    }
+}
+
 function renderAllCharts() {
+    renderPandemijaChart();
     renderRegijeChart();
     renderStarostChart();
     renderKombiniranoChart();
     renderTimelineChart();
-    renderKorelacijaChart();
 }
 
 function createTooltip() {
@@ -179,6 +202,19 @@ function showError(selector, message) {
         .attr('fill', COLORS.textMuted)
         .style('font-size', '14px')
         .text(message);
+}
+
+function renderPandemijaChart() {
+    const weeklyData = filterByObdobjeWeekly(rawDataStatsWeekly);
+    
+    const processed = weeklyData.map(d => ({
+        week: d.week,
+        confirmed: d.confirmed || 0,
+        healthcare: d.healthcare || 0
+    })).filter(d => d.week).sort((a, b) => a.week.localeCompare(b.week));
+    
+    console.log('PANDEMIJA processed:', processed.length);
+    drawMultiAreaChart('#graf-pandemija', processed);
 }
 
 function renderRegijeChart() {
@@ -282,19 +318,6 @@ function renderTimelineChart() {
 
     console.log('TIMELINE processed:', processed.length);
     drawLineChart('#graf-timeline', processed);
-}
-
-function renderKorelacijaChart() {
-    const weeklyData = filterByObdobjeWeekly(rawDataStatsWeekly);
-    
-    const processed = weeklyData.map(d => ({
-        week: d.week,
-        confirmed: d.confirmed || 0,
-        healthcare: d.healthcare || 0
-    })).filter(d => d.week).sort((a, b) => a.week.localeCompare(b.week));
-    
-    console.log('KORELACIJA processed:', processed.length);
-    drawMultiAreaChart('#graf-korelacija', processed);
 }
 
 function drawBarChart(selector, data, xKey, yKey, options = {}) {
@@ -827,7 +850,7 @@ function drawMultiAreaChart(selector, data) {
         .delay((d, i) => 2000 + i * 30)
         .attr('opacity', 1);
 
-    const legendContainer = document.getElementById('legend-korelacija');
+    const legendContainer = document.getElementById('legend-pandemija');
     if (legendContainer) {
         legendContainer.innerHTML = `
             <div class="legend-item">
