@@ -78,6 +78,35 @@ document.addEventListener('DOMContentLoaded', () => {
     const tabs = document.querySelectorAll('.tab');
     const tabContents = document.querySelectorAll('.tab-content');
 
+    // Funkcija za posodobitev opcij obdobja glede na tab
+    function updateObdobjeOptions(tabId) {
+        const obdobjeSelect = document.getElementById('filter-obdobje');
+        let options = '';
+        
+        if (tabId === 'pandemija') {
+            // Pandemija: 2020-2023
+            options = `
+                <option value="all">Vse</option>
+                <option value="2020">2020</option>
+                <option value="2021">2021</option>
+                <option value="2022">2022</option>
+                <option value="2023">2023</option>
+            `;
+        } else {
+            // Cepljenja (zemljevid, kombinirano, timeline): 2023-2025
+            options = `
+                <option value="all">Vse</option>
+                <option value="2023">2023</option>
+                <option value="2024">2024</option>
+                <option value="2025">2025</option>
+            `;
+        }
+        obdobjeSelect.innerHTML = options;
+    }
+    
+    // Nastavi začetne opcije za pandemija tab
+    updateObdobjeOptions('pandemija');
+
     tabs.forEach(tab => {
         tab.addEventListener('click', () => {
             const targetId = tab.dataset.tab;
@@ -90,11 +119,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
             
-            const granulacijaGroup = document.getElementById('filter-granulacija').closest('.filter-group');
+            // Posodobi opcije obdobja glede na tab
+            updateObdobjeOptions(targetId);
+            
+            // Skrij filtre za timeline tab (ima svoj slider)
+            const filtersSection = document.getElementById('filters-section');
             if (targetId === 'timeline') {
-                granulacijaGroup.style.display = 'flex';
+                filtersSection.style.display = 'none';
             } else {
-                granulacijaGroup.style.display = 'none';
+                filtersSection.style.display = 'flex';
+            }
+            
+            const granulacijaGroup = document.getElementById('filter-granulacija').closest('.filter-group');
+            granulacijaGroup.style.display = 'none';
+            
+            // Osveži Leaflet zemljevid ko se tab prikaže
+            if (targetId === 'zemljevid' && leafletMap) {
+                setTimeout(() => {
+                    leafletMap.invalidateSize();
+                }, 100);
             }
         });
     });
@@ -163,8 +206,10 @@ function updateLandingStats() {
 function renderAllCharts() {
     renderPandemijaChart();
     renderRegijeChart();
+    renderZemljevidChart();
     renderStarostChart();
     renderKombiniranoChart();
+    renderPresekChart();
     renderTimelineChart();
 }
 
@@ -262,9 +307,12 @@ function renderKombiniranoChart() {
     
     const aggregated = {};
     filtered.forEach(d => {
-        const starost = fixSumniki(d.Starostni_razred || d.Starostna_skupina || 'Neznano');
+        let starost = fixSumniki(d.Starostni_razred || d.Starostna_skupina || 'Neznano');
         const bolezen = d.Naziv || 'Neznano';
         const vrednost = d.st_cepljenj || d.St_cepljenj || 0;
+        
+        // Odstrani črke a:, b:, c:, d:, e: iz začetka
+        starost = starost.replace(/^[a-e]:\s*/i, '');
         
         if (starost && starost !== 'Neznano') {
             if (!aggregated[starost]) {
@@ -282,7 +330,7 @@ function renderKombiniranoChart() {
         covid: values['COVID-19'],
         total: values['Gripa'] + values['COVID-19']
     })).sort((a, b) => {
-        const order = ['a: 6 mesecev - 17 let', 'b: 18 - 59 let', 'c: 60 - 69 let', 'd: 70 - 79 let', 'e: 80 let +'];
+        const order = ['6 mesecev - 17 let', '18 - 59 let', '60 - 69 let', '70 - 79 let', '80 let +'];
         return order.indexOf(a.starost) - order.indexOf(b.starost);
     });
 
@@ -290,15 +338,351 @@ function renderKombiniranoChart() {
     drawStackedBarChart('#graf-kombinirano', processed);
 }
 
-function renderTimelineChart() {
-    const filtered = filterByObdobje(rawDataRegije);
+function renderPresekChart() {
+    // Filtriraj samo oktober-december 2023 (presek podatkov)
+    const startDate = new Date('2023-10-01');
+    const endDate = new Date('2023-12-31');
     
+    // Okužbe iz stats_weekly
+    const okuzbePodatki = rawDataStatsWeekly.filter(d => {
+        const date = new Date(d.date || d.week);
+        return date >= startDate && date <= endDate;
+    });
+    
+    console.log('PRESEK okuzbePodatki:', okuzbePodatki.length, okuzbePodatki.slice(0,2));
+    
+    // Cepljenja iz regije podatkov
+    const cepljenjaPodatki = rawDataRegije.filter(d => {
+        const date = new Date(d.Datum_cepljenja);
+        return date >= startDate && date <= endDate;
+    });
+    
+    console.log('PRESEK cepljenjaPodatki:', cepljenjaPodatki.length, cepljenjaPodatki.slice(0,2));
+    
+    // Agregiraj okužbe po tednih
+    const okuzbePoTednih = {};
+    okuzbePodatki.forEach(d => {
+        const week = d.date;
+        if (!week) return;
+        if (!okuzbePoTednih[week]) {
+            okuzbePoTednih[week] = 0;
+        }
+        okuzbePoTednih[week] += (d.confirmed || 0);
+    });
+    
+    // Agregiraj cepljenja po tednih
+    const cepljenjaPoTednih = {};
+    cepljenjaPodatki.forEach(d => {
+        const datum = new Date(d.Datum_cepljenja);
+        // Zaokroži na začetek tedna (ponedeljek)
+        const day = datum.getDay();
+        const diff = datum.getDate() - day + (day === 0 ? -6 : 1);
+        const monday = new Date(datum.setDate(diff));
+        const week = monday.toISOString().split('T')[0];
+        
+        if (!cepljenjaPoTednih[week]) {
+            cepljenjaPoTednih[week] = 0;
+        }
+        cepljenjaPoTednih[week] += (d.St_cepljenj || 0);
+    });
+    
+    // Združi podatke
+    const allWeeks = [...new Set([...Object.keys(okuzbePoTednih), ...Object.keys(cepljenjaPoTednih)])].sort();
+    
+    const combined = allWeeks.map(week => ({
+        week,
+        okuzbe: okuzbePoTednih[week] || 0,
+        cepljenja: cepljenjaPoTednih[week] || 0
+    }));
+    
+    console.log('PRESEK combined:', combined);
+    
+    if (combined.length === 0) {
+        d3.select('#graf-presek').append('text')
+            .attr('x', 400)
+            .attr('y', 200)
+            .attr('text-anchor', 'middle')
+            .attr('fill', '#94a3b8')
+            .text('Ni podatkov za prikaz');
+        return;
+    }
+    
+    drawPresekChart('#graf-presek', combined);
+}
+
+function drawPresekChart(selector, data) {
+    const container = document.querySelector(selector)?.parentElement;
+    if (!container) return;
+    
+    const containerWidth = container.clientWidth || 900;
+    const margin = { top: 40, right: 80, bottom: 60, left: 80 };
+    const width = containerWidth - margin.left - margin.right;
+    const height = 400 - margin.top - margin.bottom;
+    
+    d3.select(selector).selectAll('*').remove();
+    
+    const svg = d3.select(selector)
+        .attr('width', width + margin.left + margin.right)
+        .attr('height', height + margin.top + margin.bottom);
+    
+    const chart = svg.append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+    
+    // X skala (tedni)
+    const x = d3.scaleBand()
+        .domain(data.map(d => d.week))
+        .range([0, width])
+        .padding(0.2);
+    
+    // Y skala za okužbe (leva os)
+    const yOkuzbe = d3.scaleLinear()
+        .domain([0, d3.max(data, d => d.okuzbe) * 1.1])
+        .nice()
+        .range([height, 0]);
+    
+    // Y skala za cepljenja (desna os)
+    const yCepljenja = d3.scaleLinear()
+        .domain([0, d3.max(data, d => d.cepljenja) * 1.1])
+        .nice()
+        .range([height, 0]);
+    
+    // Grid
+    chart.append('g')
+        .attr('class', 'grid')
+        .call(d3.axisLeft(yOkuzbe).tickSize(-width).tickFormat(''))
+        .selectAll('line')
+        .attr('stroke', '#334155')
+        .attr('stroke-opacity', 0.3);
+    
+    chart.selectAll('.grid .domain').remove();
+    
+    // X os
+    chart.append('g')
+        .attr('transform', `translate(0, ${height})`)
+        .call(d3.axisBottom(x).tickFormat(d => {
+            const date = new Date(d);
+            return `${date.getDate()}.${date.getMonth() + 1}`;
+        }))
+        .selectAll('text')
+        .attr('transform', 'rotate(-45)')
+        .style('text-anchor', 'end')
+        .attr('fill', '#94a3b8');
+    
+    // Leva Y os (okužbe)
+    chart.append('g')
+        .call(d3.axisLeft(yOkuzbe).ticks(6).tickFormat(d => d.toLocaleString('sl-SI')))
+        .selectAll('text')
+        .attr('fill', '#f87171');
+    
+    chart.append('text')
+        .attr('transform', 'rotate(-90)')
+        .attr('y', -60)
+        .attr('x', -height / 2)
+        .attr('text-anchor', 'middle')
+        .attr('fill', '#f87171')
+        .attr('font-size', '12px')
+        .text('Okužbe');
+    
+    // Desna Y os (cepljenja)
+    chart.append('g')
+        .attr('transform', `translate(${width}, 0)`)
+        .call(d3.axisRight(yCepljenja).ticks(6).tickFormat(d => d.toLocaleString('sl-SI')))
+        .selectAll('text')
+        .attr('fill', '#10b981');
+    
+    chart.append('text')
+        .attr('transform', 'rotate(90)')
+        .attr('y', -width - 60)
+        .attr('x', height / 2)
+        .attr('text-anchor', 'middle')
+        .attr('fill', '#10b981')
+        .attr('font-size', '12px')
+        .text('Cepljenja');
+    
+    const tooltip = createTooltip();
+    
+    // Črtni graf za okužbe
+    const lineOkuzbe = d3.line()
+        .x(d => x(d.week) + x.bandwidth() / 2)
+        .y(d => yOkuzbe(d.okuzbe))
+        .curve(d3.curveMonotoneX);
+    
+    chart.append('path')
+        .datum(data)
+        .attr('fill', 'none')
+        .attr('stroke', '#f87171')
+        .attr('stroke-width', 3)
+        .attr('d', lineOkuzbe);
+    
+    // Pike za okužbe
+    chart.selectAll('.dot-okuzbe')
+        .data(data)
+        .enter()
+        .append('circle')
+        .attr('class', 'dot-okuzbe')
+        .attr('cx', d => x(d.week) + x.bandwidth() / 2)
+        .attr('cy', d => yOkuzbe(d.okuzbe))
+        .attr('r', 5)
+        .attr('fill', '#f87171')
+        .on('mouseenter', function(event, d) {
+            d3.select(this).attr('r', 8);
+            tooltip.innerHTML = `
+                <div class="tooltip-label">${d.week}</div>
+                <div class="tooltip-value" style="color: #f87171">${d.okuzbe.toLocaleString('sl-SI')} okužb</div>
+            `;
+            tooltip.classList.add('visible');
+            tooltip.style.left = (event.pageX + 15) + 'px';
+            tooltip.style.top = (event.pageY - 10) + 'px';
+        })
+        .on('mouseleave', function() {
+            d3.select(this).attr('r', 5);
+            tooltip.classList.remove('visible');
+        });
+    
+    // Stolpci za cepljenja
+    chart.selectAll('.bar-cepljenja')
+        .data(data)
+        .enter()
+        .append('rect')
+        .attr('class', 'bar-cepljenja')
+        .attr('x', d => x(d.week))
+        .attr('width', x.bandwidth())
+        .attr('y', d => yCepljenja(d.cepljenja))
+        .attr('height', d => height - yCepljenja(d.cepljenja))
+        .attr('fill', '#10b981')
+        .attr('opacity', 0.6)
+        .on('mouseenter', function(event, d) {
+            d3.select(this).attr('opacity', 0.9);
+            tooltip.innerHTML = `
+                <div class="tooltip-label">${d.week}</div>
+                <div class="tooltip-value" style="color: #10b981">${d.cepljenja.toLocaleString('sl-SI')} cepljenj</div>
+            `;
+            tooltip.classList.add('visible');
+            tooltip.style.left = (event.pageX + 15) + 'px';
+            tooltip.style.top = (event.pageY - 10) + 'px';
+        })
+        .on('mouseleave', function() {
+            d3.select(this).attr('opacity', 0.6);
+            tooltip.classList.remove('visible');
+        });
+    
+    // Legenda
+    const legendContainer = document.getElementById('legend-presek');
+    if (legendContainer) {
+        legendContainer.innerHTML = `
+            <div class="legend-item">
+                <span class="legend-dot" style="background: #f87171"></span>
+                <span>Okužbe (leva os)</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-dot" style="background: #10b981"></span>
+                <span>Cepljenja (desna os)</span>
+            </div>
+        `;
+    }
+}
+
+function renderTimelineChart() {
+    // Najprej procesiraj vse podatke za določitev obsega
+    const allData = rawDataRegije.filter(d => d.Datum_cepljenja);
+    
+    // Zberi vse unikatne mesece
+    const allMonths = new Set();
+    allData.forEach(d => {
+        const datum = d.Datum_cepljenja;
+        if (datum) {
+            const key = datum.substring(0, 7); // YYYY-MM
+            allMonths.add(key);
+        }
+    });
+    
+    const sortedMonths = Array.from(allMonths).sort();
+    
+    // Shrani globalno
+    window.timelineMonths = sortedMonths;
+    
+    // Inicializiraj dropdowne
+    initTimelineDropdowns(sortedMonths);
+    
+    // Nariši graf z vsemi podatki
+    updateTimelineChart();
+}
+
+function initTimelineDropdowns(months) {
+    const odSelect = document.getElementById('timeline-od');
+    const doSelect = document.getElementById('timeline-do');
+    const granSelect = document.getElementById('timeline-granulacija');
+    
+    if (!odSelect || !doSelect || months.length === 0) return;
+    
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Maj', 'Jun', 'Jul', 'Avg', 'Sep', 'Okt', 'Nov', 'Dec'];
+    
+    function formatMonth(dateStr) {
+        const parts = dateStr.split('-');
+        const month = monthNames[parseInt(parts[1]) - 1];
+        return `${month} ${parts[0]}`;
+    }
+    
+    // Generiraj opcije
+    let options = '';
+    months.forEach(m => {
+        options += `<option value="${m}">${formatMonth(m)}</option>`;
+    });
+    
+    odSelect.innerHTML = options;
+    doSelect.innerHTML = options;
+    
+    // Nastavi privzete vrednosti (prvi in zadnji mesec)
+    odSelect.value = months[0];
+    doSelect.value = months[months.length - 1];
+    
+    // Event listenerji
+    odSelect.addEventListener('change', updateTimelineChart);
+    doSelect.addEventListener('change', updateTimelineChart);
+    granSelect.addEventListener('change', updateTimelineChart);
+}
+
+function updateTimelineChart() {
+    const odSelect = document.getElementById('timeline-od');
+    const doSelect = document.getElementById('timeline-do');
+    const granSelect = document.getElementById('timeline-granulacija');
+    
+    if (!odSelect || !doSelect) return;
+    
+    const odValue = odSelect.value;
+    const doValue = doSelect.value;
+    const granulacija = granSelect ? granSelect.value : 'month';
+    
+    // Filtriraj podatke po izbranem obdobju
+    const filtered = rawDataRegije.filter(d => {
+        const datum = d.Datum_cepljenja;
+        if (!datum) return false;
+        const month = datum.substring(0, 7);
+        return month >= odValue && month <= doValue;
+    });
+    
+    // Agregiraj po granulaciji
     const aggregated = {};
     filtered.forEach(d => {
         const datum = d.Datum_cepljenja;
         if (!datum) return;
         
-        const key = getDateKey(datum, globalFilters.granulacija);
+        let key;
+        if (granulacija === 'year') {
+            key = datum.substring(0, 4);
+        } else if (granulacija === 'month') {
+            key = datum.substring(0, 7); // YYYY-MM
+        } else if (granulacija === 'week') {
+            // Izračunaj teden v letu
+            const date = new Date(datum);
+            const startOfYear = new Date(date.getFullYear(), 0, 1);
+            const weekNum = Math.ceil(((date - startOfYear) / 86400000 + startOfYear.getDay() + 1) / 7);
+            key = `${date.getFullYear()}-T${weekNum.toString().padStart(2, '0')}`;
+        } else {
+            // day
+            key = datum.substring(0, 10); // YYYY-MM-DD
+        }
+        
         const bolezen = d.Naziv || 'Neznano';
         const vrednost = d.St_cepljenj || 0;
         
@@ -316,7 +700,6 @@ function renderTimelineChart() {
         covid: values['COVID-19']
     })).sort((a, b) => a.datum.localeCompare(b.datum));
 
-    console.log('TIMELINE processed:', processed.length);
     drawLineChart('#graf-timeline', processed);
 }
 
@@ -526,6 +909,25 @@ function drawStackedBarChart(selector, data) {
         .attr('y', d => y(d.gripa + d.covid))
         .attr('height', d => height - y(d.covid));
 
+    // Dodaj oznake za seštevek nad vsakim stolpcem
+    chart.selectAll('.total-label')
+        .data(data)
+        .enter()
+        .append('text')
+        .attr('class', 'total-label')
+        .attr('x', d => x(d.starost) + x.bandwidth() / 2)
+        .attr('y', d => y(d.total) - 8)
+        .attr('text-anchor', 'middle')
+        .attr('fill', '#94a3b8')
+        .attr('font-size', '11px')
+        .attr('font-weight', '600')
+        .attr('opacity', 0)
+        .text(d => d.total.toLocaleString('sl-SI'))
+        .transition()
+        .duration(800)
+        .delay((d, i) => i * 80 + 600)
+        .attr('opacity', 1);
+
     const legendContainer = document.getElementById('legend-kombinirano');
     if (legendContainer) {
         legendContainer.innerHTML = `
@@ -536,6 +938,10 @@ function drawStackedBarChart(selector, data) {
             <div class="legend-item">
                 <div class="legend-color" style="background: ${colorCovid}"></div>
                 <span>COVID-19</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #94a3b8; opacity: 0.5"></div>
+                <span>Skupaj (številka nad stolpcem)</span>
             </div>
         `;
     }
@@ -588,7 +994,15 @@ function drawLineChart(selector, data) {
     chart.append('g')
         .attr('class', 'axis axis-x')
         .attr('transform', `translate(0, ${height})`)
-        .call(d3.axisBottom(x))
+        .call(d3.axisBottom(x).tickValues(
+            // Če je več kot 30 točk, prikaži samo vsako 15. (1. in 15. v mesecu)
+            data.length > 30 
+                ? data.filter((d, i) => {
+                    const day = parseInt(d.datum.split('-')[2] || d.datum.split('.')[0]);
+                    return day === 1 || day === 15;
+                  }).map(d => d.datum)
+                : data.map(d => d.datum)
+        ))
         .selectAll('text')
         .attr('transform', 'rotate(-45)')
         .style('text-anchor', 'end')
@@ -863,4 +1277,182 @@ function drawMultiAreaChart(selector, data) {
             </div>
         `;
     }
+}
+
+const SLOVENIA_REGIONS = {};
+
+let leafletMap = null;
+let geojsonLayer = null;
+
+function renderZemljevidChart() {
+    const mapContainer = document.getElementById('leaflet-map');
+    if (!mapContainer) return;
+    
+    // Če zemljevid že obstaja, ga odstrani
+    if (leafletMap) {
+        leafletMap.remove();
+        leafletMap = null;
+    }
+    
+    // Počisti container
+    mapContainer.innerHTML = '';
+    
+    // Ustvari Leaflet zemljevid s središčem na Sloveniji
+    leafletMap = L.map('leaflet-map', {
+        center: [46.15, 14.99],
+        zoom: 8,
+        minZoom: 7,
+        maxZoom: 12
+    });
+    
+    // Dodaj tile layer (OpenStreetMap - zanesljivejši)
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(leafletMap);
+    
+    // Počakaj da se kontejner naloži in osveži velikost
+    setTimeout(() => {
+        leafletMap.invalidateSize();
+    }, 100);
+    
+    // Naloži GeoJSON podatke
+    fetch('SR.geojson')
+        .then(response => {
+            if (!response.ok) throw new Error('GeoJSON not found');
+            return response.json();
+        })
+        .then(geojson => {
+            console.log('GeoJSON loaded:', geojson.features.length, 'features');
+            
+            // Agregiraj podatke o cepljenjih
+            const filtered = filterByObdobje(rawDataRegije).filter(d => d.Statisticna_regija);
+            
+            const aggregated = {};
+            filtered.forEach(d => {
+                const regija = fixSumniki(d.Statisticna_regija);
+                const vrednost = d.St_cepljenj || 0;
+                const bolezen = d.Naziv || 'Neznano';
+                
+                if (!aggregated[regija]) {
+                    aggregated[regija] = { total: 0, gripa: 0, covid: 0 };
+                }
+                aggregated[regija].total += vrednost;
+                if (bolezen === 'Gripa') aggregated[regija].gripa += vrednost;
+                if (bolezen === 'COVID-19') aggregated[regija].covid += vrednost;
+            });
+            
+            console.log('Aggregated data:', aggregated);
+            
+            const values = Object.values(aggregated).map(d => d.total);
+            const maxValue = Math.max(...values, 1);
+            const minValue = Math.min(...values, 0);
+            
+            // Funkcija za barvo glede na vrednost
+            function getColor(value) {
+                if (!value || value === 0) return '#3b82f6';
+                const ratio = (value - minValue) / (maxValue - minValue);
+                // Gradient od temno modre do svetlo modre
+                const r = Math.round(30 + ratio * (147 - 30));
+                const g = Math.round(58 + ratio * (197 - 58));
+                const b = Math.round(95 + ratio * (253 - 95));
+                return `rgb(${r}, ${g}, ${b})`;
+            }
+            
+            // Stil za vsako regijo
+            function style(feature) {
+                const name = feature.properties.SR_UIME;
+                const data = aggregated[name];
+                const value = data ? data.total : 0;
+                return {
+                    fillColor: getColor(value),
+                    weight: 2,
+                    opacity: 1,
+                    color: '#1e293b',
+                    fillOpacity: 0.7
+                };
+            }
+            
+            // Interaktivnost
+            function highlightFeature(e) {
+                const layer = e.target;
+                layer.setStyle({
+                    weight: 4,
+                    color: '#a855f7',
+                    fillOpacity: 0.9
+                });
+                layer.bringToFront();
+            }
+            
+            function resetHighlight(e) {
+                geojsonLayer.resetStyle(e.target);
+            }
+            
+            function onEachFeature(feature, layer) {
+                const name = feature.properties.SR_UIME;
+                const data = aggregated[name] || { total: 0, gripa: 0, covid: 0 };
+                
+                layer.bindTooltip(`<strong>${name}</strong><br>${data.total.toLocaleString('sl-SI')} cepljenj`, {
+                    permanent: false,
+                    direction: 'center'
+                });
+                
+                layer.on({
+                    mouseover: highlightFeature,
+                    mouseout: resetHighlight,
+                    click: function(e) {
+                        showRegionDetails(name, data);
+                    }
+                });
+            }
+            
+            // Dodaj GeoJSON layer
+            geojsonLayer = L.geoJSON(geojson, {
+                style: style,
+                onEachFeature: onEachFeature
+            }).addTo(leafletMap);
+            
+            // Prilagodi pogled na Slovenijo
+            leafletMap.fitBounds(geojsonLayer.getBounds());
+            
+            // Legenda
+            const legendContainer = document.getElementById('map-legend');
+            if (legendContainer) {
+                legendContainer.innerHTML = `
+                    <div class="map-legend-gradient">
+                        <span class="gradient-label">${minValue.toLocaleString('sl-SI')}</span>
+                        <div class="gradient-bar"></div>
+                        <span class="gradient-label">${maxValue.toLocaleString('sl-SI')}</span>
+                    </div>
+                `;
+            }
+        })
+        .catch(err => {
+            console.error('Napaka pri nalaganju GeoJSON:', err);
+            mapContainer.innerHTML = '<p style="color: #ef4444; text-align: center; padding: 2rem;">Napaka pri nalaganju zemljevida. Preverite da je SR.geojson datoteka prisotna.</p>';
+        });
+}
+
+function showRegionDetails(name, data) {
+    const detailsContainer = document.getElementById('region-details');
+    if (!detailsContainer) return;
+    
+    detailsContainer.innerHTML = `
+        <div class="region-info visible">
+            <h3>${name}</h3>
+            <div class="region-stats">
+                <div class="region-stat">
+                    <div class="region-stat-value">${data.total.toLocaleString('sl-SI')}</div>
+                    <div class="region-stat-label">Skupaj cepljenj</div>
+                </div>
+                <div class="region-stat">
+                    <div class="region-stat-value" style="color: #10b981">${data.gripa.toLocaleString('sl-SI')}</div>
+                    <div class="region-stat-label">Gripa</div>
+                </div>
+                <div class="region-stat">
+                    <div class="region-stat-value" style="color: #6366f1">${data.covid.toLocaleString('sl-SI')}</div>
+                    <div class="region-stat-label">COVID-19</div>
+                </div>
+            </div>
+        </div>
+    `;
 }

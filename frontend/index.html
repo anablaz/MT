@@ -9,6 +9,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
     
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.2/dist/leaflet.css" />
+    
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -17,7 +20,7 @@
             <h1 class="landing-title">
                 <span class="landing-accent">COVID-19</span> v Sloveniji
             </h1>
-            <p class="landing-subtitle">Od prvih primerov do cepljenja: 2020–2025</p>
+            <p class="landing-subtitle">Zanimivi vpogledi med leti 2020–2025</p>
             
             <div class="landing-stats">
                 <div class="stat-card">
@@ -35,8 +38,8 @@
             </div>
             
             <p class="landing-description">
-                Raziskujte širjenje virusa COVID-19 v Sloveniji in odziv z množičnim cepljenjem. 
-                Vizualizacije prikazujejo podatke po regijah, starostnih skupinah in skozi čas.
+                Sedaj, ko smo že vsaj malo preboleli travme 
+                lockdowna, si lahko pogledamo nekaj zanimivih podatkovnih vpogledov.
             </p>
             
             <button class="landing-cta" id="start-exploring">
@@ -68,8 +71,6 @@
                 <option value="2021">2021</option>
                 <option value="2022">2022</option>
                 <option value="2023">2023</option>
-                <option value="2024">2024</option>
-                <option value="2025">2025</option>
             </select>
         </div>
         <div class="filter-group">
@@ -86,15 +87,11 @@
     <nav class="tabs" id="tabs-section">
         <button class="tab active" data-tab="pandemija">
             <span class="tab-icon">◉</span>
-            Pandemija
+            Pandemija v Sloveniji
         </button>
-        <button class="tab" data-tab="regije">
-            <span class="tab-icon">◈</span>
-            Po regijah
-        </button>
-        <button class="tab" data-tab="starost">
-            <span class="tab-icon">◇</span>
-            Po starosti
+        <button class="tab" data-tab="zemljevid">
+            <span class="tab-icon">⬡</span>
+            Število cepljenj po regijah
         </button>
         <button class="tab" data-tab="kombinirano">
             <span class="tab-icon">◆</span>
@@ -102,7 +99,7 @@
         </button>
         <button class="tab" data-tab="timeline">
             <span class="tab-icon">◷</span>
-            Trend cepljenj
+            Cepljenja po pandemiji
         </button>
     </nav>
 
@@ -110,48 +107,32 @@
         <section id="pandemija" class="tab-content active">
             <div class="card">
                 <div class="card-header">
-                    <div class="card-chapter">Poglavje 1</div>
                     <h2>Pandemija v Sloveniji</h2>
-                    <p class="card-description">Tedenski potrjeni primeri COVID-19 in okužbe v zdravstvenih ustanovah (2020–2023)</p>
+                    <p class="card-description">Tedenski potrjeni primeri COVID-19 v generalni populaciji in v zdravstvenih ustanovah (2020–2023)</p>
                 </div>
                 <div class="chart-container">
                     <svg id="graf-pandemija"></svg>
                 </div>
                 <div class="legend" id="legend-pandemija"></div>
                 <div class="card-insight">
-                    <strong>Ključni insight:</strong> Graf prikazuje valove pandemije in kako so se okužbe širile med zdravstvenimi delavci v primerjavi s splošno populacijo.
+                    <strong>Kaj vidimo: </strong> Okužbe med zdravstvenimi delavci močno korelirajo z okužbami v generalni populaciji.
                 </div>
             </div>
         </section>
 
-        <section id="regije" class="tab-content">
+        <section id="zemljevid" class="tab-content">
             <div class="card">
                 <div class="card-header">
-                    <div class="card-chapter">Poglavje 2</div>
-                    <h2>Cepljenja po regijah</h2>
-                    <p class="card-description">Število cepljenj proti gripi in COVID-19 po statističnih regijah Slovenije</p>
+                    <h2>Število cepljenj po regijah</h2>
+                    <p class="card-description">Klikni na regijo za podrobnosti o cepljenjih</p>
                 </div>
-                <div class="chart-container">
-                    <svg id="graf-regije"></svg>
-                </div>
-                <div class="card-insight">
-                    <strong>Ključni insight:</strong> Primerjajte precepljenost med različnimi regijami Slovenije.
-                </div>
-            </div>
-        </section>
-
-        <section id="starost" class="tab-content">
-            <div class="card">
-                <div class="card-header">
-                    <div class="card-chapter">Poglavje 3</div>
-                    <h2>Cepljenja po starosti</h2>
-                    <p class="card-description">Število cepljenj proti gripi in COVID-19 po starostnih skupinah</p>
-                </div>
-                <div class="chart-container">
-                    <svg id="graf-starost"></svg>
+                <div id="leaflet-map" style="height: 500px; width: 100%; border-radius: 12px;"></div>
+                <div class="map-legend" id="map-legend"></div>
+                <div class="region-details" id="region-details">
+                    <p class="region-prompt">Klikni na regijo za prikaz podrobnosti</p>
                 </div>
                 <div class="card-insight">
-                    <strong>Ključni insight:</strong> Starejši od 60 let so prioritetna skupina za cepljenje.
+                    <strong>Kaj vidimo:</strong> Interaktivno lahko raziskujemo razlike v precepljenosti med regijami.
                 </div>
             </div>
         </section>
@@ -159,7 +140,6 @@
         <section id="kombinirano" class="tab-content">
             <div class="card">
                 <div class="card-header">
-                    <div class="card-chapter">Poglavje 4</div>
                     <h2>Primerjava: Gripa vs COVID-19</h2>
                     <p class="card-description">Število cepljenj po starostnih skupinah in vrsti cepiva</p>
                 </div>
@@ -168,7 +148,7 @@
                 </div>
                 <div class="legend" id="legend-kombinirano"></div>
                 <div class="card-insight">
-                    <strong>Ključni insight:</strong> Primerjava med cepljenjem proti gripi in COVID-19 po starostnih skupinah.
+                    <strong>Kaj vidimo:</strong> Otroci se zelo malo cepijo proti gripi. Najbolj precepljeni so starostniki.
                 </div>
             </div>
         </section>
@@ -176,16 +156,41 @@
         <section id="timeline" class="tab-content">
             <div class="card">
                 <div class="card-header">
-                    <div class="card-chapter">Poglavje 5</div>
-                    <h2>Trend cepljenj skozi čas</h2>
-                    <p class="card-description">Mesečni trend cepljenj proti gripi in COVID-19</p>
+                    <h2>Trend cepljenj skozi čas po pandemiji</h2>
+                    <p class="card-description">Trenda cepljenj proti gripi in COVID-19</p>
                 </div>
+                
+                <!-- Filtri za timeline -->
+                <div class="timeline-controls">
+                    <div class="timeline-filters">
+                        <div class="timeline-filter-group">
+                            <label class="filter-label">Od</label>
+                            <select id="timeline-od" class="filter-select">
+                            </select>
+                        </div>
+                        <div class="timeline-filter-group">
+                            <label class="filter-label">Do</label>
+                            <select id="timeline-do" class="filter-select">
+                            </select>
+                        </div>
+                        <div class="timeline-filter-group">
+                            <label class="filter-label">Prikaz po</label>
+                            <select id="timeline-granulacija" class="filter-select">
+                                <option value="day">Dnevih</option>
+                                <option value="week">Tednih</option>
+                                <option value="month" selected>Mesecih</option>
+                                <option value="year">Letih</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
                 <div class="chart-container">
                     <svg id="graf-timeline"></svg>
                 </div>
                 <div class="legend" id="legend-timeline"></div>
                 <div class="card-insight">
-                    <strong>Ključni insight:</strong> Sezonski vzorec cepljenja - vrhovi v jesenskih mesecih.
+                    <strong>Kaj vidimo:</strong> Vrh obeh cepljenj je v jesenskih mesecih. Več cepljenj je proti gripi.
                 </div>
             </div>
         </section>
@@ -200,6 +205,7 @@
     </footer>
 
     <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.2/dist/leaflet.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
